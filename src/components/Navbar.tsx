@@ -3,12 +3,9 @@ import { Form, Link, NavLink } from "react-router";
 import { useUser } from "../lib/auth.ts";
 
 const memberLinks = [
-  { to: "/topics", label: "Topics", end: true },
-  { to: "/topics/new", label: "Add topic", end: false },
-  { to: "/venues", label: "Venues", end: true },
-  { to: "/venues/new", label: "Add venue", end: false },
   { to: "/groups", label: "Groups", end: true },
-  { to: "/groups/new", label: "Create group", end: false },
+  { to: "/topics", label: "Topics", end: true },
+  { to: "/venues", label: "Venues", end: true },
 ];
 
 const guestLinks = [
