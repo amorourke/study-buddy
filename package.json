@@ -39,6 +39,7 @@
     "build": "tsc -b && vite build",
     "start": "node --disable-warning=ExperimentalWarning server/index.ts",
     "typecheck": "tsc -b",
-    "db:reset": "node --disable-warning=ExperimentalWarning server/reset.ts"
+    "db:reset": "node --disable-warning=ExperimentalWarning server/reset.ts",
+    "db:mock": "node --disable-warning=ExperimentalWarning server/mock.ts"
   }
 }
