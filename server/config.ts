@@ -13,12 +13,6 @@ export const config = {
   isProduction,
   port: Number(process.env.PORT ?? 3000),
   jwtSecret,
-  databasePath: process.env.DATABASE_PATH ?? "data/app.db",
-  mail: {
-    host: process.env.MAIL_HOST ?? "127.0.0.1",
-    port: Number(process.env.MAIL_PORT ?? 8025),
-    user: process.env.MAIL_USER || undefined,
-    password: process.env.MAIL_PASSWORD || undefined,
-    from: process.env.MAIL_FROM ?? "no-reply@example.com",
-  },
+  databaseUrl: process.env.TURSO_DATABASE_URL || "file:data/app.db",
+  databaseAuthToken: process.env.TURSO_AUTH_TOKEN || undefined,
 };

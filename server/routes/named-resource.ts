@@ -13,36 +13,36 @@ export function createNamedResourceRouter(table: "topics" | "venues", label: str
 
   const find = (id: number) => one<NamedRow>(`SELECT id, name FROM ${table} WHERE id = ?`, id);
 
-  const assertUniqueName = (name: string, excludeId = 0) => {
-    if (one(`SELECT 1 FROM ${table} WHERE name = ? AND id != ?`, name, excludeId)) {
+  const assertUniqueName = async (name: string, excludeId = 0) => {
+    if (await one(`SELECT 1 FROM ${table} WHERE name = ? AND id != ?`, name, excludeId)) {
       throw conflict("name", `That ${label.toLowerCase()} already exists`);
     }
   };
 
-  router.get("/", (_req, res) => {
-    res.json(many<NamedRow>(`SELECT id, name FROM ${table} ORDER BY name`));
+  router.get("/", async (_req, res) => {
+    res.json(await many<NamedRow>(`SELECT id, name FROM ${table} ORDER BY name`));
   });
 
-  router.get("/:id", (req, res) => {
-    const item = find(paramId(req, "id"));
+  router.get("/:id", async (req, res) => {
+    const item = await find(paramId(req, "id"));
     if (!item) throw notFound(label);
     res.json(item);
   });
 
-  router.post("/", (req, res) => {
+  router.post("/", async (req, res) => {
     const { name } = nameSchema.parse(req.body);
-    assertUniqueName(name);
-    const { lastInsertRowid } = run(`INSERT INTO ${table} (name) VALUES (?)`, name);
-    res.status(201).json(find(Number(lastInsertRowid)));
+    await assertUniqueName(name);
+    const { lastInsertRowid } = await run(`INSERT INTO ${table} (name) VALUES (?)`, name);
+    res.status(201).json(await find(lastInsertRowid));
   });
 
-  router.put("/:id", (req, res) => {
+  router.put("/:id", async (req, res) => {
     const id = paramId(req, "id");
-    if (!find(id)) throw notFound(label);
+    if (!(await find(id))) throw notFound(label);
     const { name } = nameSchema.parse(req.body);
-    assertUniqueName(name, id);
-    run(`UPDATE ${table} SET name = ? WHERE id = ?`, name, id);
-    res.json(find(id));
+    await assertUniqueName(name, id);
+    await run(`UPDATE ${table} SET name = ? WHERE id = ?`, name, id);
+    res.json(await find(id));
   });
 
   return router;

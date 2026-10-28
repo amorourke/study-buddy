@@ -3,7 +3,6 @@ import { bookingSchema, groupSchema } from "../../shared/schemas.ts";
 import type { Booking, Group, Member } from "../../shared/types.ts";
 import { many, one, run, transaction } from "../db.ts";
 import { conflict, forbidden, HttpError, notFound, paramId } from "../errors.ts";
-import { sendRemovedFromGroupEmail } from "../mail.ts";
 
 interface GroupRow {
   id: number;
@@ -51,20 +50,22 @@ function toGroup(row: GroupRow, members: MemberRow[]): Group {
   };
 }
 
-function listGroups(): Group[] {
-  const rows = many<GroupRow>(`${groupSelect} ORDER BY g.name`);
-  const members = many<MemberRow>(`${memberSelect} ORDER BY s.username`);
+async function listGroups(): Promise<Group[]> {
+  const [rows, members] = await Promise.all([
+    many<GroupRow>(`${groupSelect} ORDER BY g.name`),
+    many<MemberRow>(`${memberSelect} ORDER BY s.username`),
+  ]);
   return rows.map((row) => toGroup(row, members));
 }
 
-function findGroup(id: number): Group | undefined {
-  const row = one<GroupRow>(`${groupSelect} WHERE g.id = ?`, id);
+async function findGroup(id: number): Promise<Group | undefined> {
+  const row = await one<GroupRow>(`${groupSelect} WHERE g.id = ?`, id);
   if (!row) return undefined;
-  return toGroup(row, many<MemberRow>(`${memberSelect} WHERE m.group_id = ? ORDER BY s.username`, id));
+  return toGroup(row, await many<MemberRow>(`${memberSelect} WHERE m.group_id = ? ORDER BY s.username`, id));
 }
 
-function getGroup(id: number): Group {
-  const group = findGroup(id);
+async function getGroup(id: number): Promise<Group> {
+  const group = await findGroup(id);
   if (!group) throw notFound("Group");
   return group;
 }
@@ -73,103 +74,85 @@ function isMember(group: Group, studentId: number): boolean {
   return group.members.some((member) => member.id === studentId);
 }
 
-function assertTopicExists(topicId: number): void {
-  if (!one("SELECT 1 FROM topics WHERE id = ?", topicId)) throw conflict("topicId", "Choose a valid topic");
+async function assertTopicExists(topicId: number): Promise<void> {
+  if (!(await one("SELECT 1 FROM topics WHERE id = ?", topicId))) throw conflict("topicId", "Choose a valid topic");
 }
 
-function assertUniqueName(name: string, excludeId = 0): void {
-  if (one("SELECT 1 FROM groups WHERE name = ? AND id != ?", name, excludeId)) {
+async function assertUniqueName(name: string, excludeId = 0): Promise<void> {
+  if (await one("SELECT 1 FROM groups WHERE name = ? AND id != ?", name, excludeId)) {
     throw conflict("name", "A group with that name already exists");
   }
 }
 
 export const groupsRouter = Router();
 
-groupsRouter.get("/", (_req, res) => {
-  res.json(listGroups());
+groupsRouter.get("/", async (_req, res) => {
+  res.json(await listGroups());
 });
 
-groupsRouter.post("/", (req, res) => {
+groupsRouter.post("/", async (req, res) => {
   const { name, topicId } = groupSchema.parse(req.body);
-  assertUniqueName(name);
-  assertTopicExists(topicId);
+  await assertUniqueName(name);
+  await assertTopicExists(topicId);
 
   const userId = res.locals.user.id;
-  const groupId = transaction(() => {
-    const { lastInsertRowid } = run(
+  const groupId = await transaction(async (tx) => {
+    const { lastInsertRowid } = await tx.run(
       "INSERT INTO groups (name, topic_id, leader_id) VALUES (?, ?, ?)",
       name,
       topicId,
       userId,
     );
-    run("INSERT INTO group_members (group_id, student_id) VALUES (?, ?)", lastInsertRowid, userId);
-    return Number(lastInsertRowid);
+    await tx.run("INSERT INTO group_members (group_id, student_id) VALUES (?, ?)", lastInsertRowid, userId);
+    return lastInsertRowid;
   });
 
-  res.status(201).json(getGroup(groupId));
+  res.status(201).json(await getGroup(groupId));
 });
 
-groupsRouter.get("/:id", (req, res) => {
-  res.json(getGroup(paramId(req, "id")));
+groupsRouter.get("/:id", async (req, res) => {
+  res.json(await getGroup(paramId(req, "id")));
 });
 
-groupsRouter.put("/:id", (req, res) => {
-  const group = getGroup(paramId(req, "id"));
+groupsRouter.put("/:id", async (req, res) => {
+  const group = await getGroup(paramId(req, "id"));
   if (group.leader.id !== res.locals.user.id) throw forbidden("Only the group leader can edit this group");
 
   const { name, topicId } = groupSchema.parse(req.body);
-  assertUniqueName(name, group.id);
-  assertTopicExists(topicId);
+  await assertUniqueName(name, group.id);
+  await assertTopicExists(topicId);
 
-  run("UPDATE groups SET name = ?, topic_id = ? WHERE id = ?", name, topicId, group.id);
-  res.json(getGroup(group.id));
+  await run("UPDATE groups SET name = ?, topic_id = ? WHERE id = ?", name, topicId, group.id);
+  res.json(await getGroup(group.id));
 });
 
-groupsRouter.post("/:id/join", (req, res) => {
-  const group = getGroup(paramId(req, "id"));
+groupsRouter.post("/:id/join", async (req, res) => {
+  const group = await getGroup(paramId(req, "id"));
   const userId = res.locals.user.id;
   if (isMember(group, userId)) throw new HttpError(409, `You are already a member of ${group.name}`);
 
-  run("INSERT INTO group_members (group_id, student_id) VALUES (?, ?)", group.id, userId);
-  res.json(getGroup(group.id));
+  await run("INSERT INTO group_members (group_id, student_id) VALUES (?, ?)", group.id, userId);
+  res.json(await getGroup(group.id));
 });
 
 groupsRouter.delete("/:id/members/:studentId", async (req, res) => {
-  const group = getGroup(paramId(req, "id"));
+  const group = await getGroup(paramId(req, "id"));
   const studentId = paramId(req, "studentId");
 
   if (group.leader.id !== res.locals.user.id) throw forbidden("Only the group leader can remove members");
   if (studentId === group.leader.id) throw new HttpError(400, "The group leader can't be removed");
 
-  const student = one<{ username: string; email: string }>(
-    `SELECT s.username, s.email FROM group_members m JOIN students s ON s.id = m.student_id
-     WHERE m.group_id = ? AND m.student_id = ?`,
-    group.id,
-    studentId,
-  );
-  if (!student) throw notFound("Member");
+  if (!isMember(group, studentId)) throw notFound("Member");
 
-  run("DELETE FROM group_members WHERE group_id = ? AND student_id = ?", group.id, studentId);
-
-  try {
-    await sendRemovedFromGroupEmail({
-      to: student.email,
-      username: student.username,
-      groupName: group.name,
-      topicName: group.topic.name,
-    });
-  } catch (error) {
-    console.error("Failed to send removal email:", error);
-  }
-
+  await run("DELETE FROM group_members WHERE group_id = ? AND student_id = ?", group.id, studentId);
   res.status(204).end();
 });
 
-groupsRouter.get("/:id/bookings", (req, res) => {
-  const group = getGroup(paramId(req, "id"));
+groupsRouter.get("/:id/bookings", async (req, res) => {
+  const group = await getGroup(paramId(req, "id"));
   if (!isMember(group, res.locals.user.id)) throw forbidden("Only group members can view bookings");
 
-  const rows = many<BookingRow>(
+  const rows = await many<BookingRow>(
     `SELECT b.id, b.date, b.slot, v.id AS venueId, v.name AS venueName
      FROM bookings b JOIN venues v ON v.id = b.venue_id
      WHERE b.group_id = ? ORDER BY b.date, b.slot`,
@@ -184,16 +167,22 @@ groupsRouter.get("/:id/bookings", (req, res) => {
   res.json(bookings);
 });
 
-groupsRouter.post("/:id/bookings", (req, res) => {
-  const group = getGroup(paramId(req, "id"));
+groupsRouter.post("/:id/bookings", async (req, res) => {
+  const group = await getGroup(paramId(req, "id"));
   if (!isMember(group, res.locals.user.id)) throw forbidden("Only group members can make bookings");
 
   const { venueId, date, slot } = bookingSchema.parse(req.body);
-  if (!one("SELECT 1 FROM venues WHERE id = ?", venueId)) throw conflict("venueId", "Choose a valid venue");
-  if (one("SELECT 1 FROM bookings WHERE venue_id = ? AND date = ? AND slot = ?", venueId, date, slot)) {
+  if (!(await one("SELECT 1 FROM venues WHERE id = ?", venueId))) throw conflict("venueId", "Choose a valid venue");
+  if (await one("SELECT 1 FROM bookings WHERE venue_id = ? AND date = ? AND slot = ?", venueId, date, slot)) {
     throw conflict("slot", "That venue is already booked for this time");
   }
 
-  run("INSERT INTO bookings (group_id, venue_id, date, slot) VALUES (?, ?, ?, ?)", group.id, venueId, date, slot);
+  await run(
+    "INSERT INTO bookings (group_id, venue_id, date, slot) VALUES (?, ?, ?, ?)",
+    group.id,
+    venueId,
+    date,
+    slot,
+  );
   res.status(204).end();
 });

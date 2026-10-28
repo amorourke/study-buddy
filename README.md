@@ -9,7 +9,6 @@ React + TypeScript + Tailwind front end with an Express + SQLite API. A rewrite 
 - **Database:** SQLite via Node's built-in `node:sqlite` (no native packages to compile)
 - **Validation:** Zod schemas in `shared/`, used by both client and server
 - **Auth:** bcrypt password hashes, JWT in an httpOnly cookie
-- **Email:** Nodemailer (same local SMTP setup as the Flask version)
 
 ## Requirements
 
@@ -30,19 +29,9 @@ The database is created at `data/app.db` on first run and seeded with the four d
 npm run db:reset
 ```
 
-## Email
-
-Removing a member sends them an email. To see these locally, run the same debug SMTP server as before in another terminal:
-
-```bash
-python -m aiosmtpd -n -l 127.0.0.1:8025
-```
-
-If no mail server is running, the member is still removed and the error is logged.
-
 ## Configuration
 
-Copy `.env.example` to `.env` to change the port, database path, JWT secret or mail settings.
+Copy `.env.example` to `.env` to change the port, database, JWT secret or mock data password.
 
 ## Production
 
@@ -71,7 +60,6 @@ server/
   index.ts         Express app
   db.ts            Schema, seed data and query helpers
   auth.ts          Cookie/JWT session handling
-  mail.ts          Removal email
   routes/          auth, topics/venues, groups and bookings
 src/
   router.tsx       All routes

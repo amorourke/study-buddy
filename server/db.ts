@@ -1,13 +1,16 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { DatabaseSync, type SQLInputValue, type StatementSync } from "node:sqlite";
+import { createClient, type InValue, type ResultSet, type Transaction } from "@libsql/client";
 import { config } from "./config.ts";
 
-const databasePath = resolve(config.databasePath);
-mkdirSync(dirname(databasePath), { recursive: true });
+const isLocalFile = config.databaseUrl.startsWith("file:");
+if (isLocalFile) mkdirSync(dirname(resolve(config.databaseUrl.slice("file:".length))), { recursive: true });
 
-export const db = new DatabaseSync(databasePath);
-db.exec("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
+// Turso hands out libsql:// URLs; plain HTTPS suits short-lived serverless functions best.
+export const db = createClient({
+  url: config.databaseUrl.replace(/^libsql:\/\//, "https://"),
+  authToken: config.databaseAuthToken,
+});
 
 const schema = `
   CREATE TABLE IF NOT EXISTS students (
@@ -56,20 +59,73 @@ const schema = `
 
 const defaultTopics = ["Computer Science", "English", "Science", "Maths"];
 
-export function migrate(): void {
-  db.exec(schema);
+export interface Queries {
+  one<T>(sql: string, ...params: InValue[]): Promise<T | undefined>;
+  many<T>(sql: string, ...params: InValue[]): Promise<T[]>;
+  run(sql: string, ...params: InValue[]): Promise<{ lastInsertRowid: number }>;
 }
 
-export function seed(): void {
-  const existing = one<{ count: number }>("SELECT COUNT(*) AS count FROM topics");
+function toObjects<T>(result: ResultSet): T[] {
+  return result.rows.map((row) => Object.fromEntries(result.columns.map((column, i) => [column, row[i]])) as T);
+}
+
+function queriesFor(executor: Pick<Transaction, "execute">): Queries {
+  return {
+    async one<T>(sql: string, ...params: InValue[]) {
+      return toObjects<T>(await executor.execute({ sql, args: params }))[0];
+    },
+    async many<T>(sql: string, ...params: InValue[]) {
+      return toObjects<T>(await executor.execute({ sql, args: params }));
+    },
+    async run(sql: string, ...params: InValue[]) {
+      const result = await executor.execute({ sql, args: params });
+      return { lastInsertRowid: Number(result.lastInsertRowid ?? 0) };
+    },
+  };
+}
+
+export const { one, many, run } = queriesFor(db);
+
+export async function transaction<T>(work: (tx: Queries) => Promise<T>): Promise<T> {
+  const tx = await db.transaction("write");
+  try {
+    const result = await work(queriesFor(tx));
+    await tx.commit();
+    return result;
+  } finally {
+    tx.close();
+  }
+}
+
+export async function migrate(): Promise<void> {
+  if (isLocalFile) await db.executeMultiple("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;");
+  await db.executeMultiple(schema);
+}
+
+export async function seed(): Promise<void> {
+  const existing = await one<{ count: number }>("SELECT COUNT(*) AS count FROM topics");
   if (existing && existing.count > 0) return;
-  transaction(() => {
-    for (const topic of defaultTopics) run("INSERT INTO topics (name) VALUES (?)", topic);
-  });
+  await db.batch(
+    defaultTopics.map((topic) => ({ sql: "INSERT INTO topics (name) VALUES (?)", args: [topic] })),
+    "write",
+  );
 }
 
-export function reset(): void {
-  db.exec(`
+let ready: Promise<void> | undefined;
+
+// Runs migrate + seed once per server instance (each serverless cold start), retrying after a failure.
+export function ensureDatabase(): Promise<void> {
+  ready ??= migrate()
+    .then(seed)
+    .catch((error: unknown) => {
+      ready = undefined;
+      throw error;
+    });
+  return ready;
+}
+
+export async function reset(): Promise<void> {
+  await db.executeMultiple(`
     DROP TABLE IF EXISTS bookings;
     DROP TABLE IF EXISTS group_members;
     DROP TABLE IF EXISTS groups;
@@ -77,41 +133,6 @@ export function reset(): void {
     DROP TABLE IF EXISTS topics;
     DROP TABLE IF EXISTS students;
   `);
-  migrate();
-  seed();
-}
-
-const statements = new Map<string, StatementSync>();
-
-function statement(sql: string): StatementSync {
-  let prepared = statements.get(sql);
-  if (!prepared) {
-    prepared = db.prepare(sql);
-    statements.set(sql, prepared);
-  }
-  return prepared;
-}
-
-export function one<T>(sql: string, ...params: SQLInputValue[]): T | undefined {
-  return statement(sql).get(...params) as T | undefined;
-}
-
-export function many<T>(sql: string, ...params: SQLInputValue[]): T[] {
-  return statement(sql).all(...params) as T[];
-}
-
-export function run(sql: string, ...params: SQLInputValue[]) {
-  return statement(sql).run(...params);
-}
-
-export function transaction<T>(work: () => T): T {
-  db.exec("BEGIN");
-  try {
-    const result = work();
-    db.exec("COMMIT");
-    return result;
-  } catch (error) {
-    db.exec("ROLLBACK");
-    throw error;
-  }
+  await migrate();
+  await seed();
 }

@@ -1,10 +1,15 @@
 import bcrypt from "bcryptjs";
-import { migrate, one, run, seed, transaction } from "./db.ts";
+import type { InStatement } from "@libsql/client";
+import { db, ensureDatabase, one } from "./db.ts";
 
 // Adds sample students, venues, groups and bookings without touching existing data.
 // Usage: npm run db:mock [-- <your-username>]  (also adds that user to a few groups)
 
-const MOCK_PASSWORD = "Password!";
+const MOCK_PASSWORD = process.env.MOCK_PASSWORD;
+if (!MOCK_PASSWORD) {
+  console.error("Set MOCK_PASSWORD in .env (see .env.example) before adding mock data.");
+  process.exit(1);
+}
 
 const students = ["alice", "ben", "chloe", "dev", "ella", "finn", "grace", "harry"];
 
@@ -44,72 +49,61 @@ function isoDateInDays(days: number): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-function idOf(table: string, column: string, value: string): number {
-  const row = one<{ id: number }>(`SELECT id FROM ${table} WHERE ${column} = ?`, value);
-  if (!row) throw new Error(`No ${table} row with ${column} = ${value}`);
-  return row.id;
-}
+const studentId = "(SELECT id FROM students WHERE username = ?)";
+const groupId = "(SELECT id FROM groups WHERE name = ?)";
 
-migrate();
-seed();
+await ensureDatabase();
 
-const passwordHash = await bcrypt.hash(MOCK_PASSWORD, 12);
-
-if (joinAs && !one("SELECT 1 FROM students WHERE username = ?", joinAs)) {
+if (joinAs && !(await one("SELECT 1 FROM students WHERE username = ?", joinAs))) {
   console.error(`No student called "${joinAs}" - register that account first.`);
   process.exit(1);
 }
 
-transaction(() => {
-  for (const username of students) {
-    run(
-      "INSERT OR IGNORE INTO students (username, email, password_hash) VALUES (?, ?, ?)",
-      username,
-      `${username}@example.com`,
-      passwordHash,
-    );
+const passwordHash = await bcrypt.hash(MOCK_PASSWORD, 12);
+const statements: InStatement[] = [];
+
+for (const username of students) {
+  statements.push({
+    sql: "INSERT OR IGNORE INTO students (username, email, password_hash) VALUES (?, ?, ?)",
+    args: [username, `${username}@example.com`, passwordHash],
+  });
+}
+
+for (const venue of venues) statements.push({ sql: "INSERT OR IGNORE INTO venues (name) VALUES (?)", args: [venue] });
+
+for (const group of groups) {
+  statements.push({
+    sql: `INSERT OR IGNORE INTO groups (name, topic_id, leader_id)
+          VALUES (?, (SELECT id FROM topics WHERE name = ?), ${studentId})`,
+    args: [group.name, group.topic, group.leader],
+  });
+  for (const member of [group.leader, ...group.members]) {
+    statements.push({
+      sql: `INSERT OR IGNORE INTO group_members (group_id, student_id) VALUES (${groupId}, ${studentId})`,
+      args: [group.name, member],
+    });
   }
+}
 
-  for (const venue of venues) run("INSERT OR IGNORE INTO venues (name) VALUES (?)", venue);
-
-  for (const group of groups) {
-    run(
-      "INSERT OR IGNORE INTO groups (name, topic_id, leader_id) VALUES (?, ?, ?)",
-      group.name,
-      idOf("topics", "name", group.topic),
-      idOf("students", "username", group.leader),
-    );
-    const groupId = idOf("groups", "name", group.name);
-    for (const member of [group.leader, ...group.members]) {
-      run(
-        "INSERT OR IGNORE INTO group_members (group_id, student_id) VALUES (?, ?)",
-        groupId,
-        idOf("students", "username", member),
-      );
-    }
+if (joinAs) {
+  for (const name of groupsForJoinAs) {
+    statements.push({
+      sql: `INSERT OR IGNORE INTO group_members (group_id, student_id) VALUES (${groupId}, ${studentId})`,
+      args: [name, joinAs],
+    });
   }
+}
 
-  if (joinAs) {
-    const studentId = idOf("students", "username", joinAs);
-    for (const name of groupsForJoinAs) {
-      run(
-        "INSERT OR IGNORE INTO group_members (group_id, student_id) VALUES (?, ?)",
-        idOf("groups", "name", name),
-        studentId,
-      );
-    }
-  }
+for (const booking of bookings) {
+  statements.push({
+    sql: `INSERT OR IGNORE INTO bookings (group_id, venue_id, date, slot)
+          VALUES (${groupId}, (SELECT id FROM venues WHERE name = ?), ?, ?)`,
+    args: [booking.group, booking.venue, isoDateInDays(booking.inDays), booking.slot],
+  });
+}
 
-  for (const booking of bookings) {
-    run(
-      "INSERT OR IGNORE INTO bookings (group_id, venue_id, date, slot) VALUES (?, ?, ?, ?)",
-      idOf("groups", "name", booking.group),
-      idOf("venues", "name", booking.venue),
-      isoDateInDays(booking.inDays),
-      booking.slot,
-    );
-  }
-});
+// A batch runs as one transaction: if any lookup fails, nothing is written.
+await db.batch(statements, "write");
 
-console.log(`Mock data added. Mock students log in with password "${MOCK_PASSWORD}".`);
+console.log("Mock data added. Mock students log in with the MOCK_PASSWORD from your environment.");
 if (joinAs) console.log(`Added ${joinAs} to: ${groupsForJoinAs.join(", ")}.`);
