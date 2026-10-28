@@ -46,17 +46,29 @@ export function Navbar() {
           Study Buddy
         </Link>
 
-        <div className="hidden items-center gap-1 lg:flex">
-          {links.map((link) => (
-            <NavLink key={link.to} to={link.to} end={link.end} className={linkClasses}>
-              {link.label}
-            </NavLink>
-          ))}
-        </div>
+        {user && (
+          <div className="hidden items-center gap-1 lg:flex">
+            {memberLinks.map((link) => (
+              <NavLink key={link.to} to={link.to} end={link.end} className={linkClasses}>
+                {link.label}
+              </NavLink>
+            ))}
+          </div>
+        )}
 
         <div className="hidden items-center gap-3 lg:flex">
-          {user && <span className="text-sm text-slate-500">{user.username}</span>}
-          {logout}
+          {user ? (
+            <>
+              <span className="text-sm text-slate-500">{user.username}</span>
+              {logout}
+            </>
+          ) : (
+            guestLinks.map((link) => (
+              <NavLink key={link.to} to={link.to} end={link.end} className={linkClasses}>
+                {link.label}
+              </NavLink>
+            ))
+          )}
         </div>
 
         <button
