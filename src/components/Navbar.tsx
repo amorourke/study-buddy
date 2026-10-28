@@ -5,7 +5,6 @@ import { useUser } from "../lib/auth.ts";
 const memberLinks = [
   { to: "/", label: "Home", end: true },
   { to: "/groups", label: "Groups", end: true },
-  { to: "/topics", label: "Topics", end: true },
   { to: "/venues", label: "Venues", end: true },
 ];
 

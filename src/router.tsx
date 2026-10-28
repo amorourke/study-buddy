@@ -25,10 +25,6 @@ import { GroupsPage } from "./pages/groups/GroupsPage.tsx";
 import { ManageGroupPage } from "./pages/groups/ManageGroupPage.tsx";
 import { HomePage } from "./pages/HomePage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
-import { AddTopicPage } from "./pages/topics/AddTopicPage.tsx";
-import { EditTopicPage } from "./pages/topics/EditTopicPage.tsx";
-import { addTopicAction, editTopicAction, editTopicLoader, topicsLoader } from "./pages/topics/topics.data.ts";
-import { TopicsPage } from "./pages/topics/TopicsPage.tsx";
 import { AddVenuePage } from "./pages/venues/AddVenuePage.tsx";
 import { EditVenuePage } from "./pages/venues/EditVenuePage.tsx";
 import { addVenueAction, editVenueAction, editVenueLoader, venuesLoader } from "./pages/venues/venues.data.ts";
@@ -60,19 +56,6 @@ export const router = createBrowserRouter([
             loader: requireUser,
             element: <Outlet />,
             children: [
-              {
-                path: "topics",
-                children: [
-                  { index: true, element: <TopicsPage />, loader: topicsLoader },
-                  { path: "new", element: <AddTopicPage />, action: addTopicAction },
-                  {
-                    path: ":topicId/edit",
-                    element: <EditTopicPage />,
-                    loader: editTopicLoader,
-                    action: editTopicAction,
-                  },
-                ],
-              },
               {
                 path: "venues",
                 children: [
