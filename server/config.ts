@@ -3,10 +3,10 @@ import { existsSync } from "node:fs";
 if (existsSync(".env")) process.loadEnvFile();
 
 const isProduction = process.env.NODE_ENV === "production";
-const jwtSecret = process.env.JWT_SECRET ?? "dev-only-secret";
+const jwtSecret = process.env.JWT_SECRET;
 
-if (isProduction && jwtSecret === "dev-only-secret") {
-  throw new Error("JWT_SECRET must be set in production");
+if (!jwtSecret) {
+  throw new Error("JWT_SECRET must be set (see .env.example)");
 }
 
 export const config = {
