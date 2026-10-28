@@ -29,6 +29,52 @@ const actions = [
   },
 ];
 
+
+export function HomePage() {
+  const user = useUser();
+  const { groups: myGroups, upcomingBookings } = useLoaderData<HomeData>();
+
+  return (
+    <div className="pt-8">
+      <section className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Study Buddy</h1>
+        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+          {user
+            ? `Welcome back, ${user.username}. Join a group, start your own or check in on the groups you're already part of.`
+            : "Join study groups, meet other students and book venues for your sessions."}
+        </p>
+        {!user && (
+          <div className="mt-8 flex justify-center gap-3">
+            <ButtonLink to="/register">Get started</ButtonLink>
+            <ButtonLink to="/login" variant="secondary">
+              Log in
+            </ButtonLink>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-12 grid gap-6 sm:grid-cols-3">
+        {actions.map((action) => (
+          <Card key={action.title} className="flex flex-col">
+            <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
+            <p className="mt-2 flex-1 text-sm text-slate-600">{action.description}</p>
+            <ButtonLink to={action.to} variant="outline" className="mt-6 self-start">
+              {action.label}
+            </ButtonLink>
+          </Card>
+        ))}
+      </section>
+
+      {user && (
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+          <MyGroups groups={myGroups} />
+          <UpcomingBookings bookings={upcomingBookings} />
+        </section>
+      )}
+    </div>
+  );
+}
+
 function MyGroups({ groups }: { groups: Group[] }) {
   return (
     <Card className="flex flex-col">
@@ -92,50 +138,5 @@ function UpcomingBookings({ bookings }: { bookings: UpcomingBooking[] }) {
         </ul>
       )}
     </Card>
-  );
-}
-
-export function HomePage() {
-  const user = useUser();
-  const { groups: myGroups, upcomingBookings } = useLoaderData<HomeData>();
-
-  return (
-    <div className="pt-8">
-      <section className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Study Buddy</h1>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
-          {user
-            ? `Welcome back, ${user.username}. Join a group, start your own or check in on the groups you're already part of.`
-            : "Join study groups, meet other students and book venues for your sessions."}
-        </p>
-        {!user && (
-          <div className="mt-8 flex justify-center gap-3">
-            <ButtonLink to="/register">Get started</ButtonLink>
-            <ButtonLink to="/login" variant="secondary">
-              Log in
-            </ButtonLink>
-          </div>
-        )}
-      </section>
-
-      <section className="mt-12 grid gap-6 sm:grid-cols-3">
-        {actions.map((action) => (
-          <Card key={action.title} className="flex flex-col">
-            <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
-            <p className="mt-2 flex-1 text-sm text-slate-600">{action.description}</p>
-            <ButtonLink to={action.to} variant="outline" className="mt-6 self-start">
-              {action.label}
-            </ButtonLink>
-          </Card>
-        ))}
-      </section>
-
-      {user && (
-        <section className="mt-6 grid gap-6 lg:grid-cols-2">
-          <MyGroups groups={myGroups} />
-          <UpcomingBookings bookings={upcomingBookings} />
-        </section>
-      )}
-    </div>
   );
 }
