@@ -64,7 +64,7 @@ export function HomePage() {
   const myGroups = useLoaderData<Group[]>();
 
   return (
-    <div className="py-16">
+    <div className="pt-8">
       <section className="text-center">
         <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Study Buddy</h1>
         <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
