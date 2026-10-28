@@ -9,14 +9,9 @@ import { SelectField } from "../../components/ui/SelectField.tsx";
 import { SubmitButton } from "../../components/ui/SubmitButton.tsx";
 import { Table, Td } from "../../components/ui/Table.tsx";
 import { TextField } from "../../components/ui/TextField.tsx";
+import { formatDate } from "../../lib/dates.ts";
 import { fieldError, type FormResult } from "../../lib/forms.ts";
 import type { BookingsData } from "./groups.data.ts";
-
-const dateFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
-
-function formatDate(isoDate: string): string {
-  return dateFormat.format(new Date(`${isoDate}T00:00:00`));
-}
 
 export function BookingsPage() {
   const { group, venues, bookings } = useLoaderData<BookingsData>();
@@ -27,8 +22,8 @@ export function BookingsPage() {
       <PageHeader
         title={`Bookings for ${group.name}`}
         action={
-          <ButtonLink to="/groups" variant="secondary">
-            Back to groups
+          <ButtonLink to={`/groups/${group.id}`} variant="secondary">
+            Back to group
           </ButtonLink>
         }
       />

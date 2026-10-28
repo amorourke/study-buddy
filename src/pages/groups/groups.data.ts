@@ -17,6 +17,15 @@ export interface BookingsData {
   bookings: Booking[];
 }
 
+export interface GroupDetailData {
+  group: Group;
+  bookings: Booking[];
+}
+
+export function isMemberOf(group: Group, userId: number): boolean {
+  return group.members.some((member) => member.id === userId);
+}
+
 async function attempt(work: () => Promise<unknown>, successMessage: string): Promise<null> {
   try {
     await work();
@@ -30,6 +39,19 @@ async function attempt(work: () => Promise<unknown>, successMessage: string): Pr
 
 export function groupsLoader() {
   return api.groups.list();
+}
+
+export async function homeLoader(): Promise<Group[]> {
+  const user = await api.auth.me();
+  if (!user) return [];
+  const groups = await api.groups.list();
+  return groups.filter((group) => isMemberOf(group, user.id));
+}
+
+export async function groupDetailLoader({ params }: LoaderFunctionArgs): Promise<GroupDetailData> {
+  const id = routeId(params, "groupId");
+  const [group, bookings] = await Promise.all([api.groups.get(id), api.groups.bookings(id)]);
+  return { group, bookings };
 }
 
 export async function groupsAction({ request }: ActionFunctionArgs) {

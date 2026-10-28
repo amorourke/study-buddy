@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useFetcher } from "react-router";
+import { Link, useFetcher } from "react-router";
 import type { Group } from "../../../shared/types.ts";
 import { Button, ButtonLink } from "../../components/ui/Button.tsx";
 import { Td } from "../../components/ui/Table.tsx";
+import { isMemberOf } from "./groups.data.ts";
 
 interface GroupRowProps {
   group: Group;
@@ -13,13 +14,21 @@ export function GroupRow({ group, userId }: GroupRowProps) {
   const fetcher = useFetcher();
   const [showMembers, setShowMembers] = useState(false);
   const isLeader = group.leader.id === userId;
-  const isMember = group.members.some((member) => member.id === userId);
+  const isMember = isMemberOf(group, userId);
   const membersId = `group-${group.id}-members`;
 
   return (
     <>
       <tr>
-        <Td className="font-medium text-slate-900">{group.name}</Td>
+        <Td className="font-medium text-slate-900">
+          {isMember ? (
+            <Link to={`/groups/${group.id}`} className="hover:text-indigo-600">
+              {group.name}
+            </Link>
+          ) : (
+            group.name
+          )}
+        </Td>
         <Td>{group.topic.name}</Td>
         <Td>{group.leader.username}</Td>
         <Td>

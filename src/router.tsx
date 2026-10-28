@@ -8,13 +8,16 @@ import { RegisterPage } from "./pages/auth/RegisterPage.tsx";
 import { ErrorPage } from "./pages/ErrorPage.tsx";
 import { AddGroupPage } from "./pages/groups/AddGroupPage.tsx";
 import { BookingsPage } from "./pages/groups/BookingsPage.tsx";
+import { GroupDetailPage } from "./pages/groups/GroupDetailPage.tsx";
 import {
   addGroupAction,
   addGroupLoader,
   bookingsAction,
   bookingsLoader,
+  groupDetailLoader,
   groupsAction,
   groupsLoader,
+  homeLoader,
   manageGroupAction,
   manageGroupLoader,
 } from "./pages/groups/groups.data.ts";
@@ -43,7 +46,7 @@ export const router = createBrowserRouter([
       {
         errorElement: <ErrorPage />,
         children: [
-          { index: true, element: <HomePage /> },
+          { index: true, element: <HomePage />, loader: homeLoader },
           { path: "logout", action: logoutAction },
           {
             loader: guestOnly,
@@ -88,6 +91,7 @@ export const router = createBrowserRouter([
                 children: [
                   { index: true, element: <GroupsPage />, loader: groupsLoader, action: groupsAction },
                   { path: "new", element: <AddGroupPage />, loader: addGroupLoader, action: addGroupAction },
+                  { path: ":groupId", element: <GroupDetailPage />, loader: groupDetailLoader },
                   {
                     path: ":groupId/manage",
                     element: <ManageGroupPage />,
