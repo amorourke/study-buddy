@@ -59,42 +59,40 @@ export function HomePage() {
   const myGroups = useLoaderData<Group[]>();
 
   return (
-    <div className={`py-16 ${user ? "grid gap-8 lg:grid-cols-3" : ""}`}>
-      <div className="lg:col-span-2">
-        <section className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Study Buddy</h1>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
-            {user
-              ? `Welcome back, ${user.username}. Join a group, start your own or check in on the groups you're already part of.`
-              : "Join study groups, meet other students and book venues for your sessions."}
-          </p>
-          {!user && (
-            <div className="mt-8 flex justify-center gap-3">
-              <ButtonLink to="/register">Get started</ButtonLink>
-              <ButtonLink to="/login" variant="secondary">
-                Log in
-              </ButtonLink>
-            </div>
-          )}
-        </section>
+    <div className="py-16">
+      <section className="text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">Study Buddy</h1>
+        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+          {user
+            ? `Welcome back, ${user.username}. Join a group, start your own or check in on the groups you're already part of.`
+            : "Join study groups, meet other students and book venues for your sessions."}
+        </p>
+        {!user && (
+          <div className="mt-8 flex justify-center gap-3">
+            <ButtonLink to="/register">Get started</ButtonLink>
+            <ButtonLink to="/login" variant="secondary">
+              Log in
+            </ButtonLink>
+          </div>
+        )}
+      </section>
 
-        <section className="mt-12 grid gap-6 sm:grid-cols-2">
-          {actions.map((action) => (
-            <Card key={action.title} className="flex flex-col">
-              <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
-              <p className="mt-2 flex-1 text-sm text-slate-600">{action.description}</p>
-              <ButtonLink to={action.to} className="mt-6 self-start">
-                {action.label}
-              </ButtonLink>
-            </Card>
-          ))}
-        </section>
-      </div>
+      <section className="mt-12 grid gap-6 sm:grid-cols-2">
+        {actions.map((action) => (
+          <Card key={action.title} className="flex flex-col">
+            <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
+            <p className="mt-2 flex-1 text-sm text-slate-600">{action.description}</p>
+            <ButtonLink to={action.to} className="mt-6 self-start">
+              {action.label}
+            </ButtonLink>
+          </Card>
+        ))}
+      </section>
 
       {user && (
-        <aside>
+        <section className="mt-6">
           <MyGroups groups={myGroups} />
-        </aside>
+        </section>
       )}
     </div>
   );
