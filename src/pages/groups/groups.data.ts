@@ -1,5 +1,5 @@
 import { redirect, type ActionFunctionArgs, type LoaderFunctionArgs } from "react-router";
-import { bookingSchema, groupSchema } from "../../../shared/schemas.ts";
+import { bookingSchema, groupSchema, todayIso } from "../../../shared/schemas.ts";
 import type { Booking, Group, Topic, Venue } from "../../../shared/types.ts";
 import { api, ApiError } from "../../lib/api.ts";
 import { flash } from "../../lib/flash.ts";
@@ -15,6 +15,15 @@ export interface BookingsData {
   group: Group;
   venues: Venue[];
   bookings: Booking[];
+}
+
+export interface UpcomingBooking extends Booking {
+  group: Pick<Group, "id" | "name">;
+}
+
+export interface HomeData {
+  groups: Group[];
+  upcomingBookings: UpcomingBooking[];
 }
 
 export interface GroupDetailData {
@@ -41,11 +50,24 @@ export function groupsLoader() {
   return api.groups.list();
 }
 
-export async function homeLoader(): Promise<Group[]> {
+export async function homeLoader(): Promise<HomeData> {
   const user = await api.auth.me();
-  if (!user) return [];
-  const groups = await api.groups.list();
-  return groups.filter((group) => isMemberOf(group, user.id));
+  if (!user) return { groups: [], upcomingBookings: [] };
+
+  const groups = (await api.groups.list()).filter((group) => isMemberOf(group, user.id));
+  const bookingsByGroup = await Promise.all(
+    groups.map(async (group) => {
+      const bookings = await api.groups.bookings(group.id);
+      return bookings.map((booking) => ({ ...booking, group: { id: group.id, name: group.name } }));
+    }),
+  );
+
+  const today = todayIso();
+  const upcomingBookings = bookingsByGroup
+    .flat()
+    .filter((booking) => booking.date >= today)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.slot.localeCompare(b.slot));
+  return { groups, upcomingBookings };
 }
 
 export async function groupDetailLoader({ params }: LoaderFunctionArgs): Promise<GroupDetailData> {

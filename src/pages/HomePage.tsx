@@ -1,8 +1,11 @@
 import { Link, useLoaderData } from "react-router";
+import { slotLabel } from "../../shared/schemas.ts";
 import type { Group } from "../../shared/types.ts";
 import { ButtonLink } from "../components/ui/Button.tsx";
 import { Card } from "../components/ui/Card.tsx";
 import { useUser } from "../lib/auth.ts";
+import { formatDate } from "../lib/dates.ts";
+import type { HomeData, UpcomingBooking } from "./groups/groups.data.ts";
 
 const actions = [
   {
@@ -35,10 +38,10 @@ function MyGroups({ groups }: { groups: Group[] }) {
       ) : (
         <ul className="mt-3 divide-y divide-slate-100">
           {groups.map((group) => (
-            <li key={group.id}>
+            <li key={group.id} className="flex items-center gap-4 py-2">
               <Link
                 to={`/groups/${group.id}`}
-                className="-mx-2 flex items-center justify-between rounded-md px-2 py-2 hover:bg-slate-50"
+                className="-mx-2 flex flex-1 items-center justify-between rounded-md px-2 py-2 hover:bg-slate-50"
               >
                 <span>
                   <span className="block text-sm font-medium text-slate-900">{group.name}</span>
@@ -48,6 +51,9 @@ function MyGroups({ groups }: { groups: Group[] }) {
                   {group.members.length} {group.members.length === 1 ? "member" : "members"}
                 </span>
               </Link>
+              <ButtonLink to={`/groups/${group.id}/bookings`} variant="secondary" size="sm">
+                Make a booking
+              </ButtonLink>
             </li>
           ))}
         </ul>
@@ -59,9 +65,39 @@ function MyGroups({ groups }: { groups: Group[] }) {
   );
 }
 
+function UpcomingBookings({ bookings }: { bookings: UpcomingBooking[] }) {
+  return (
+    <Card className="flex flex-col">
+      <h2 className="text-lg font-semibold text-slate-900">Upcoming bookings</h2>
+      {bookings.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-600">None of your groups have any sessions booked yet.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-slate-100">
+          {bookings.map((booking) => (
+            <li key={booking.id} className="flex items-center justify-between gap-4 py-3">
+              <span>
+                <span className="block text-sm font-medium text-slate-900">{booking.venue.name}</span>
+                <span className="block text-xs text-slate-500">
+                  {formatDate(booking.date)} · {slotLabel(booking.slot)}
+                </span>
+              </span>
+              <Link
+                to={`/groups/${booking.group.id}`}
+                className="text-right text-xs font-medium text-indigo-600 hover:text-indigo-500"
+              >
+                {booking.group.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 export function HomePage() {
   const user = useUser();
-  const myGroups = useLoaderData<Group[]>();
+  const { groups: myGroups, upcomingBookings } = useLoaderData<HomeData>();
 
   return (
     <div className="pt-8">
@@ -95,8 +131,9 @@ export function HomePage() {
       </section>
 
       {user && (
-        <section className="mt-6">
+        <section className="mt-6 grid gap-6 lg:grid-cols-2">
           <MyGroups groups={myGroups} />
+          <UpcomingBookings bookings={upcomingBookings} />
         </section>
       )}
     </div>
