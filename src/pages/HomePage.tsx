@@ -6,11 +6,16 @@ import { useUser } from "../lib/auth.ts";
 
 const actions = [
   {
-    title: "Join a group",
-    description:
-      "Browse the study groups other students have set up, find one that matches your topic and join with a single click.",
+    title: "Browse groups",
+    description: "See every study group on Study Buddy, what topic it covers, who leads it and how many members it has.",
     to: "/groups",
     label: "Browse groups",
+  },
+  {
+    title: "Join a group",
+    description: "Found a group that matches your topic? Join it with a single click and start booking sessions together.",
+    to: "/groups",
+    label: "Find a group to join",
   },
   {
     title: "Create a group",
@@ -77,12 +82,12 @@ export function HomePage() {
         )}
       </section>
 
-      <section className="mt-12 grid gap-6 sm:grid-cols-2">
+      <section className="mt-12 grid gap-6 sm:grid-cols-3">
         {actions.map((action) => (
           <Card key={action.title} className="flex flex-col">
             <h2 className="text-lg font-semibold text-slate-900">{action.title}</h2>
             <p className="mt-2 flex-1 text-sm text-slate-600">{action.description}</p>
-            <ButtonLink to={action.to} className="mt-6 self-start">
+            <ButtonLink to={action.to} variant="outline" className="mt-6 self-start">
               {action.label}
             </ButtonLink>
           </Card>

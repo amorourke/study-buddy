@@ -1,4 +1,4 @@
-export type ButtonVariant = "primary" | "secondary" | "danger";
+export type ButtonVariant = "primary" | "secondary" | "outline" | "danger";
 export type ButtonSize = "sm" | "md";
 
 const base =
@@ -7,6 +7,7 @@ const base =
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-indigo-600 text-white hover:bg-indigo-500",
   secondary: "bg-white text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50",
+  outline: "bg-transparent text-indigo-600 ring-1 ring-inset ring-indigo-600 hover:bg-indigo-50",
   danger: "bg-red-600 text-white hover:bg-red-500",
 };
 
