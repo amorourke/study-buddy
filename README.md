@@ -4,6 +4,20 @@ Study Buddy helps students find study groups and book a place to meet.
 
 I first built this for a university project in Python with Flask. Later I rebuilt it in TypeScript, with a React front end and an Express API, to practise building a full-stack app with types shared across the whole codebase.
 
+# Before Rebuilding
+<img width="1812" height="865" alt="image" src="https://github.com/user-attachments/assets/18079008-db02-414a-92dd-7ac784cad0b2" />
+
+<img width="1920" height="876" alt="image" src="https://github.com/user-attachments/assets/c8023c0e-d448-4756-93e7-48535af7799b" />
+
+<img width="1916" height="872" alt="image" src="https://github.com/user-attachments/assets/96d1197d-2392-4242-9b2d-4cdeb6dfe4b1" />
+
+# After Rebuilding
+<img width="1897" height="920" alt="image" src="https://github.com/user-attachments/assets/0d7d8eef-6d90-45d2-87e3-4689259e56d7" />
+
+<img width="1897" height="918" alt="image" src="https://github.com/user-attachments/assets/d26a894e-ef37-4ba8-a2c1-1aac3b591a3e" />
+
+<img width="1893" height="912" alt="image" src="https://github.com/user-attachments/assets/e3092808-9e52-42a1-9215-7a52cda5bf87" />
+
 ## What it does
 
 Study Buddy covers three things:
